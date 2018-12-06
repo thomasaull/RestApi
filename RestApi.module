@@ -20,12 +20,9 @@ require_once __DIR__ . "/Router.php";
 // });
 
 class RestApi extends WireData implements Module {
-
-  // public function __construct() {
-  //   echo "construct";
-  //   set_error_handler(array($this, 'handleErrorCallback'));
-  //   set_exception_handler(array($this, 'handleErrorCallback'));
-  // }
+  
+  private $apiTemplates = ['api-endpoint-route', 'api-endpoint-method'];
+  private $apiFields = ['api_fastrouteoption', 'api_class', 'api_class_method', 'api_auth'];
   
   public function init() {
     $this->addHookBefore('ProcessPageView::execute', $this, 'checkIfApiRequest');
@@ -50,13 +47,20 @@ class RestApi extends WireData implements Module {
 
   public function ___install() {
     $apiPath = "{$this->config->paths->site}api";
+    $apiClassesPath = "{$this->config->paths->site}api/classes";
     $routesPath = "{$this->config->paths->site}api/Routes.php";
-    $examplesPath = "{$this->config->paths->site}api/Example.php";
+    $examplesPath = "{$apiClassesPath}/Example.php";
+    $examplesContent = "{$apiClassesPath}/Blog.php";
 
     if (!file_exists($apiPath)) {
       $this->files->mkdir("{$this->config->paths->site}api");
       $this->message("$this->className: Created api directory: $apiPath");
-    } 
+    }
+    
+    if (!file_exists($apiClassesPath)) {
+      $this->files->mkdir("{$this->config->paths->site}api/classes");
+      $this->message("$this->className: Created classes directory: $apiPath");
+    }
 
     if (!file_exists($routesPath)) {
       $this->files->copy(__DIR__ . "/apiTemplate/Routes.php", $routesPath);
@@ -64,13 +68,132 @@ class RestApi extends WireData implements Module {
     }
 
     if (!file_exists($examplesPath)) {
-      $this->files->copy(__DIR__ . "/apiTemplate/Example.php", $examplesPath);
-      $this->message("$this->className: Created Example.php in: $examplesPath");
+      $this->files->copy(__DIR__ . "/apiTemplate/Example.php", $apiClassesPath);
+      $this->message("$this->className: Created Example class in: $apiClassesPath");
     }
+    
+    if (!file_exists($examplesContent)) {
+      $this->files->copy(__DIR__ . "/apiTemplate/Blog.php", $apiClassesPath);
+      $this->message("$this->className: Created Example Content class in: $apiClassesPath");
+    }
+    
+    $this->createTemplates();   
+    $this->createEndpoints();   
+  }
+  
+  private function createTemplates() {
+    
+    foreach($this->apiTemplates as $template){
+      // new fieldgroup for template
+      $fg = new Fieldgroup();
+      $fg->name = $template;
+      $fg->add($this->fields->get('title')); 
+      $fg->save();
+      // new template for routes and methods
+      $tRoute = new Template();
+      $tRoute->name = $template;
+      $tRoute->fieldgroup = $fg; 
+      $tRoute->save();
+      $this->message("$this->className: Created API Templates");
+    }
+    // add api-endpoint-method fields to api-endpoint-method template
+    foreach($this->apiFields as $methodField){
+      $f = new Field(); // create new field object
+      if($methodField == 'api_auth'){
+        $f->type = $this->modules->get("FieldtypeCheckbox");
+      } else {
+        $f->type = $this->modules->get("FieldtypeText"); 
+      }
+      $f->name = $methodField;
+      $f->save(); 
+      $fg = wire('fieldgroups')->get('api-endpoint-method');
+      $fg->add($f); 
+      $fg->save(); 
+      $this->message("$this->className: Created API Fields");
+    }
+  }
+  
+  private function createEndpoints() {
+    //add a container page for our routes
+    // needed for pw driven routes
+    $endpoints = new Page(); 
+    $endpoints->template = 'api-endpoint-route'; 
+    $endpoints->parent = wire('pages')->get(1);
+    $endpoints->name = 'api-endpoints'; 
+    $endpoints->title = 'API ENDPOINTS'; 
+    $endpoints->save();
+    $endpoints->addStatus(Page::statusHidden);
+    $endpoints->save();
+    
+    //add some example routes to provide a endpoint to get all content
+    $exRoute = new Page();
+    $exRoute->template = 'api-endpoint-route'; 
+    $exRoute->parent = $endpoints;
+    $exRoute->name = 'contents'; 
+    $exRoute->title = 'contents'; 
+    $exRoute->save();
+    
+    $exMethodPosts = new Page();
+    $exMethodPosts->template = 'api-endpoint-method'; 
+    $exMethodPosts->parent = $exRoute;
+    $exMethodPosts->name = 'get'; 
+    $exMethodPosts->title = 'GET'; 
+    $exMethodPosts->save();
+    $exMethodPosts->api_class = 'Blog';
+    $exMethodPosts->api_class_method = 'getPosts';
+    $exMethodPosts->api_auth = false;
+    $exMethodPosts->save();
+    
+    $exRoutePost = new Page();
+    $exRoutePost->template = 'api-endpoint-route'; 
+    $exRoutePost->parent = $endpoints;
+    $exRoutePost->name = 'content'; 
+    $exRoutePost->title = 'content'; 
+    $exRoutePost->save();
+    
+    $exMethod = new Page();
+    $exMethod->template = 'api-endpoint-method'; 
+    $exMethod->parent = $exRoutePost;
+    $exMethod->name = 'get'; 
+    $exMethod->title = 'GET'; 
+    $exMethod->save();
+    $exMethod->api_fastrouteoption = '{id:\d+}';
+    $exMethod->api_class = 'Blog';
+    $exMethod->api_class_method = 'getPost';
+    $exMethod->api_auth = true;
+    $exMethod->save();
+    
+    $this->message("$this->className: Created API Example Endpoints");
   }
 
   public function ___uninstall() {
+    
     $this->message("$this->className: You need to remove the site/api folder yourself if you're not planning on using it anymore"); 
+    $apiTemplates = ['api-endpoint-route','api-endpoint-method'];
+    $endpoints = wire('pages')->get('name=api-endpoints');
+    
+    if($endpoints->id){
+      wire('pages')->delete($endpoints, true);
+    }
+    
+    foreach($this->apiTemplates as $template) {
+      $t = wire('templates')->get($template);
+      if($t->id){
+        wire('templates')->delete($t);
+      }
+      $fieldgroups = wire('fieldgroups');
+      $fg =  $fieldgroups->get($template);
+      if($fg){
+        $fieldgroups->delete($fg);
+      }
+    }
+    
+    foreach($this->apiFields as $field) {
+      $f = wire('fields')->get($field);
+      if($f->id){
+        wire('fields')->delete($f);
+      }
+    }
   }
 
   public function ___upgrade($fromVersion, $toVersion) {
