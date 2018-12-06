@@ -26,12 +26,16 @@ foreach($endpoints as $endpoint){
   $endpointOptions = false;
   $endpointOptions[] = ['OPTIONS', '', RestApiHelper::class, 'preflight', ['auth' => false]];
   foreach($endpoint->children as $method){
+    $auth = false;
+    if($method->api_auth){
+      $auth = true;
+    }
     $endpointOptions[] = [
       $method->title,
       $method->api_fastrouteoption,
       __NAMESPACE__ . '\\' . $method->api_class,
       $method->api_class_method,
-      ['auth' =>  $method->api_auth],
+      ['auth' =>  $auth],
     ];
     $routes[$endpoint->title] = $endpointOptions;
   }
