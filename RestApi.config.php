@@ -8,6 +8,7 @@ $config = array(
     'options' => array(
       'none' => 'None', 
       'session' => 'Session',
+      'basic' => 'Basic Auth',
       'jwt' => 'JWT', 
     ),
     'value' => 'none',

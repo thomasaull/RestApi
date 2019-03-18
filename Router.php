@@ -132,6 +132,33 @@ class Router
       }
     }
 
+    
+    // Basic HTTP Authentication
+    if($authMethod === 'basic' && $routeNeedsAuth) {
+      $authHeader = self::getAuthorizationHeader();
+      if(!$authHeader) {
+        self::displayError('Bad Request', 400);
+      }
+      
+      $credentials = new \StdClass();
+
+      $hash = base64_decode(substr($_SERVER["HTTP_AUTHORIZATION"], 6)) ;
+      $authHeader = explode(':', $hash, 2);
+      if(!isset($authHeader[0]) || !isset($authHeader[1])) {
+        self::displayError('No Authorization Header found', 400);
+      }
+
+      $credentials->user = $authHeader[0];
+      $credentials->pass = $authHeader[1];
+
+      RestApiHelper::checkAndSanitizeRequiredParameters($credentials, ['user|selectorValue', 'pass|string']);
+      $loggedin = wire('session')->login($credentials->user, $credentials->pass);
+      if(!$loggedin) {
+        self::displayError('user does not have authorization', 401);
+      }
+    }
+
+    // session Authentication
     if($authMethod === 'session' && $routeNeedsAuth) {
       if(wire('user')->isGuest()) self::displayError('user does not have authorization', 401);
     }
