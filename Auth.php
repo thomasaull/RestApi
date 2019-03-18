@@ -56,6 +56,7 @@ class Auth
   
     if($loggedIn) {
       if(wire('modules')->RestApi->authMethod === 'session') return 'logged in: ' . wire('user')->name;
+      if(wire('modules')->RestApi->authMethod === 'basic') return 'logged in: ' . wire('user')->name;
       if(wire('modules')->RestApi->authMethod === 'jwt') return self::createJWT();
     }
     else throw new \Exception("Login not successful", 401); 
