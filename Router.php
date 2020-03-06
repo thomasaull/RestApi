@@ -128,7 +128,7 @@ class Router
       }
       catch (\Throwable $e)
       {
-        throw new \Exception($e->getMessage());
+        self::displayError('Signature verification failed', 400);
       }
     }
 
