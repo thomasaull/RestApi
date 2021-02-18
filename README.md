@@ -1,4 +1,4 @@
-# Deprecated Warning
+# ⚠ Deprecated Warning
 
 This module is not under active development anymore. The successor `AppApi` is available here: https://github.com/Sebiworld/AppApi
 
