@@ -128,7 +128,7 @@ class Router
       }
       catch (\Throwable $e)
       {
-        throw new \Exception($e->getMessage());
+        self::displayError('Signature verification failed', 400);
       }
     }
 
@@ -246,7 +246,8 @@ class Router
   private static function getAuthorizationHeader() {
     // convert all headers to lowercase:
     $headers = array();
-    foreach($_SERVER as $key => $value) {
+    $header_variables = array_merge($_SERVER, getallheaders());
+    foreach($header_variables as $key => $value) {
       $headers[strtolower($key)] = $value;
     }
 
